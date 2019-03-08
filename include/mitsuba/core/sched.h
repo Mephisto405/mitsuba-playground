@@ -555,7 +555,7 @@ public:
 
 	/// A list of status codes returned by acquireWork()
 	enum EStatus {
-		/// Sucessfully acquired a work unit
+		/// Successfully acquired a work unit
 		EOK,
 		/// There is currently no work (and onlyTry was set to true)
 		ENone,
