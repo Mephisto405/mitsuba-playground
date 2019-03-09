@@ -77,6 +77,8 @@ public:
 		block->setOffset(rect->getOffset());
 		block->setSize(rect->getSize());
 		m_hilbertCurve.initialize(TVector2<uint8_t>(rect->getSize()));
+
+		/// 각 프로세스는 renderBlock을 수행한다.
 		m_integrator->renderBlock(m_scene, m_sensor, m_sampler,
 			block, stop, m_hilbertCurve.getPoints());
 
@@ -114,6 +116,7 @@ private:
 	HilbertCurve2D<uint8_t> m_hilbertCurve;
 };
 
+/// Initialize
 BlockedRenderProcess::BlockedRenderProcess(const RenderJob *parent, RenderQueue *queue,
 		int blockSize) : m_queue(queue), m_parent(parent), m_resultCount(0), m_progress(NULL) {
 	m_blockSize = blockSize;
@@ -139,15 +142,21 @@ ref<WorkProcessor> BlockedRenderProcess::createWorkProcessor() const {
 			m_blockSize, m_borderSize, m_warnInvalid);
 }
 
+// 각 process의 결과가 어떻게 전체 결과물에 공헌을 할지
 void BlockedRenderProcess::processResult(const WorkResult *result, bool cancelled) {
 	const ImageBlock *block = static_cast<const ImageBlock *>(result);
 	UniqueLock lock(m_resultMutex);
+	/// 전체 film에 block의 결과물을 주입한다 (block의 index는 block안에 저장되어있는 정보다.)
 	m_film->put(block);
+
 	m_progress->update(++m_resultCount);
 	lock.unlock();
 	m_queue->signalWorkEnd(m_parent, block, cancelled);
 }
 
+// Takes a pre-allocated \ref WorkUnit instance of
+// the appropriate sub - type and size and
+// fills it with the appropriate content.
 ParallelProcess::EStatus BlockedRenderProcess::generateWork(WorkUnit *unit, int worker) {
 	EStatus status = BlockedImageProcess::generateWork(unit, worker);
 	if (status == ESuccess)
