@@ -20,6 +20,10 @@ plugins += env.SharedLibrary('multichannel', ['misc/multichannel.cpp'])
 plugins += env.SharedLibrary('field', ['misc/field.cpp'])
 plugins += env.SharedLibrary('motion', ['misc/motion.cpp'])
 
+# Custom
+plugins += env.SharedLibrary('depth', ['gbuffers/depth.cpp'])
+plugins += env.SharedLibrary('normal', ['gbuffers/normal.cpp'])
+
 # Bidirectional techniques
 bidirEnv = env.Clone()
 bidirEnv.Append(LIBS=['mitsuba-bidir'])

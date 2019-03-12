@@ -1,1 +1,8 @@
+mbuild
+minclude/mitsuba/core
+msrc/integrators
+msrc/integrators/misc
+msrc/libcore
+msrc/libpython
+msrc/librender
 msrc/utils

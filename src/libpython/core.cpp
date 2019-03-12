@@ -1604,6 +1604,7 @@ void export_core() {
 		.value("ESpectrumAlphaWeight", Bitmap::ESpectrumAlphaWeight)
 		.value("EMultiSpectrumAlphaWeight", Bitmap::EMultiSpectrumAlphaWeight)
 		.value("EMultiChannel", Bitmap::EMultiChannel)
+		.value("ESpectrumAlphaWeightDepth", Bitmap::ESpectrumAlphaWeightDepth)
 		.export_values();
 
 	bp::enum_<Bitmap::EComponentFormat>("EComponentFormat")

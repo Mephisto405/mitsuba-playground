@@ -198,6 +198,9 @@ public:
 		sched->wait(proc);
 
 		cout << "Result: " << proc->getOutput() << endl;
+		
+		float *m_pointer;
+		cout << "Size of float pointer: " << sizeof(m_pointer) << endl; // 8
 
 		return 0;
 

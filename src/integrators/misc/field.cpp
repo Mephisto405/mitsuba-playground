@@ -111,12 +111,33 @@ public:
 	 : SamplingIntegrator(stream, manager) {
 		 m_field = (EField) stream->readInt();
 		 m_undefined = Spectrum(stream);
+		 m_maxDist = stream->readFloat();
 	}
 
 	void serialize(Stream *stream, InstanceManager *manager) const {
 		SamplingIntegrator::serialize(stream, manager);
 		stream->writeInt((int) m_field);
 		m_undefined.serialize(stream);
+		stream->writeFloat(m_maxDist);
+	}
+
+	bool preprocess(const Scene *scene, RenderQueue *queue,
+		const RenderJob *job, int sceneResID, int cameraResID,
+		int samplerResID) {
+		SamplingIntegrator::preprocess(scene, queue, job, sceneResID,
+			cameraResID, samplerResID);
+
+		if (m_field == EDistance) {
+			const AABB &sceneAABB = scene->getAABB();
+			Point cameraPosition = scene->getSensor()->getWorldTransform()->eval(0).
+				transformAffine(Point(0.0f));
+			m_maxDist = -std::numeric_limits<Float>::infinity();
+			for (int i = 0; i<8; ++i)
+				m_maxDist = std::max(m_maxDist,
+				(cameraPosition - sceneAABB.getCorner(i)).length());
+		}
+
+		return true;
 	}
 
 	Spectrum Li(const RayDifferential &ray, RadianceQueryRecord &rRec) const {
@@ -138,8 +159,10 @@ public:
 					result.fromLinearRGB(p.x, p.y, p.z);
 				}
 				break;
-			case EDistance:
-				result = Spectrum(its.t);
+			case EDistance: {
+					Float distance = its.t;
+					result = Spectrum(1.0f - distance / m_maxDist);
+				}
 				break;
 			case EGeometricNormal:
 				result.fromLinearRGB(its.geoFrame.n.x, its.geoFrame.n.y, its.geoFrame.n.z);
@@ -182,6 +205,7 @@ public:
 private:
 	EField m_field;
 	Spectrum m_undefined;
+	Float m_maxDist;
 };
 
 MTS_IMPLEMENT_CLASS_S(FieldIntegrator, false, SamplingIntegrator)

@@ -419,11 +419,20 @@ std::string Bitmap::getChannelName(int idx) const {
 		case ERGB: name = "RGBA"[idx]; break;
 		case EXYZA:
 		case EXYZ: name = "XYZA"[idx]; break;
+		case ESpectrumAlphaWeightDepth:
 		case ESpectrumAlphaWeight:
 		case ESpectrumAlpha:
-			if (idx == m_channelCount-1)
+			/*
+			if (idx == m_channelCount-1) // 맨 끝
 				return m_pixelFormat == ESpectrumAlpha ? "A" : "W";
-			else if (idx == m_channelCount-2 && m_pixelFormat == ESpectrumAlphaWeight)
+			else if (idx == m_channelCount-2 && m_pixelFormat == ESpectrumAlphaWeight) // 맨 끝에서 두번째
+				return "A";
+			*/
+			if (idx == m_channelCount - 1)
+				return m_pixelFormat == ESpectrumAlpha ? "A" : (m_pixelFormat == ESpectrumAlphaWeight ? "W" : "D");
+			else if (idx == m_channelCount - 2 && m_pixelFormat != ESpectrumAlpha)
+				return m_pixelFormat == ESpectrumAlphaWeight ? "A" : "W";
+			else if (idx == m_channelCount - 3 && m_pixelFormat == ESpectrumAlphaWeightDepth)
 				return "A";
 		case ESpectrum: {
 				std::pair<Float, Float> coverage = Spectrum::getBinCoverage(idx);
@@ -454,6 +463,7 @@ void Bitmap::updateChannelCount() {
 		case ESpectrum: m_channelCount = SPECTRUM_SAMPLES; break;
 		case ESpectrumAlpha: m_channelCount = SPECTRUM_SAMPLES + 1; break;
 		case ESpectrumAlphaWeight: m_channelCount = SPECTRUM_SAMPLES + 2; break;
+		case ESpectrumAlphaWeightDepth: m_channelCount = SPECTRUM_SAMPLES + 3; break;
 		case EMultiSpectrumAlphaWeight: break;
 		case EMultiChannel: break;
 		default:
@@ -4012,6 +4022,7 @@ std::ostream &operator<<(std::ostream &os, const Bitmap::EPixelFormat &value) {
 		case Bitmap::ESpectrumAlphaWeight: os << "spectrumAlphaWeight"; break;
 		case Bitmap::EMultiSpectrumAlphaWeight: os << "multiSpectrumAlphaWeight"; break;
 		case Bitmap::EMultiChannel: os << "multiChannel"; break;
+		case Bitmap::ESpectrumAlphaWeightDepth: os << "spectrumAlphaWeightDepth"; break;
 		default: os << "invalid"; break;
 	}
 	return os;

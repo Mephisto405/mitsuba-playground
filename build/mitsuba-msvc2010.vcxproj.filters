@@ -142,7 +142,10 @@
       <UniqueIdentifier>{3fdeab5a-5ccf-41c6-bf05-d9f7f510c741}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\integrators\wlr">
-      <UniqueIdentifier>{afcc7642-8c61-4620-b0f2-5d0762bc9cc4}</UniqueIdentifier>
+      <UniqueIdentifier>{b1ef63dd-f76f-4c2e-bc03-4cdc344280d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\integrators\gbuffers">
+      <UniqueIdentifier>{9a812eef-5959-4d7d-a478-130ef9194265}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup Label="Source Files">
@@ -1025,8 +1028,23 @@
     <ClCompile Include="..\src\utils\rot13.cpp">
       <Filter>Source Files\utils</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\integrators\wlr\wlr.cpp">
+    <ClCompile Include="..\src\integrators\wlr\wlrrender.cpp">
       <Filter>Source Files\integrators\wlr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\integrators\gbuffers\depth.cpp">
+      <Filter>Source Files\integrators\gbuffers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\integrators\gbuffers\normal.cpp">
+      <Filter>Source Files\integrators\gbuffers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\integrators\misc\field.cpp">
+      <Filter>Source Files\integrators\misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\integrators\misc\motion.cpp">
+      <Filter>Source Files\integrators\misc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\integrators\misc\multichannel.cpp">
+      <Filter>Source Files\integrators\misc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup Label="Header Files">
@@ -1713,6 +1731,9 @@
     </ClInclude>
     <ClInclude Include="..\include\mitsuba\mitsuba.h">
       <Filter>Header Files\mitsuba</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\integrators\wlr\wlrproc.h">
+      <Filter>Source Files\integrators\wlr</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

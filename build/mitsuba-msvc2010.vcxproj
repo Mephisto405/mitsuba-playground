@@ -122,6 +122,7 @@
     </ClInclude>
     <ClInclude Include="..\src\bsdfs\ior.h">
     </ClInclude>
+    <ClInclude Include="..\src\integrators\wlr\wlrproc.h" />
     <ClInclude Include="..\src\samplers\faure.h">
     </ClInclude>
     <ClInclude Include="..\src\samplers\sobolseq.h">
@@ -622,7 +623,12 @@
     </ClCompile>
     <ClCompile Include="..\src\bsdfs\roughplastic.cpp">
     </ClCompile>
-    <ClCompile Include="..\src\integrators\wlr\wlr.cpp" />
+    <ClCompile Include="..\src\integrators\gbuffers\depth.cpp" />
+    <ClCompile Include="..\src\integrators\gbuffers\normal.cpp" />
+    <ClCompile Include="..\src\integrators\misc\field.cpp" />
+    <ClCompile Include="..\src\integrators\misc\motion.cpp" />
+    <ClCompile Include="..\src\integrators\misc\multichannel.cpp" />
+    <ClCompile Include="..\src\integrators\wlr\wlrrender.cpp" />
     <ClCompile Include="..\src\librender\trimesh.cpp">
     </ClCompile>
     <ClCompile Include="..\src\librender\irrcache.cpp">

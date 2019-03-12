@@ -90,7 +90,9 @@ public:
 		EMultiSpectrumAlphaWeight = 0x09,
 
 		/// Arbitrary multi-channel bitmap without a fixed interpretation
-		EMultiChannel             = 0x10
+		EMultiChannel             = 0x10,
+
+		ESpectrumAlphaWeightDepth = 0x11
 	};
 
 	/// Supported per-component data formats
@@ -414,7 +416,8 @@ public:
 	/// Return whether this image has a weight channel
 	inline bool hasWeight() const {
 		return m_pixelFormat == ESpectrumAlphaWeight ||
-		       m_pixelFormat == EMultiSpectrumAlphaWeight;
+		       m_pixelFormat == EMultiSpectrumAlphaWeight ||
+			   m_pixelFormat == ESpectrumAlphaWeightDepth;
 	}
 
 	/// Return whether this is a generic multi-channel image
