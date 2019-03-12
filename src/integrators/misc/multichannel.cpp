@@ -144,6 +144,10 @@ public:
 				m_integrators.size() > 1 ? Bitmap::EMultiSpectrumAlphaWeight : Bitmap::ESpectrumAlphaWeight,
 				(int) (m_integrators.size() * SPECTRUM_SAMPLES + 2), false);
 
+		/* Variance buffer initialization along the above pixel format */
+		m_varianceBuffer = new ImageBlock(m_integrators.size() > 1 ? Bitmap::EMultiSpectrumAlphaWeight : Bitmap::ESpectrumAlphaWeight,
+			film->getSize(), film->getReconstructionFilter(), (int)(m_integrators.size() * SPECTRUM_SAMPLES + 2), true);
+
 		int integratorResID = sched->registerResource(this);
 		proc->bindResource("integrator", integratorResID);
 		proc->bindResource("scene", sceneResID);
@@ -178,6 +182,13 @@ public:
 
 		block->clear();
 
+		/* Image sub block for variance buffer */
+		ref<ImageBlock> varianceBlock = new ImageBlock(block->getPixelFormat(), 
+			block->getSize(), scene->getFilm()->getReconstructionFilter(), 
+			block->getChannelCount());
+		varianceBlock->setOffset(block->getOffset());
+		varianceBlock->clear();
+
 		uint32_t queryType = RadianceQueryRecord::ESensorRay;
 		Float *temp = (Float *) alloca(sizeof(Float) * (m_integrators.size() * SPECTRUM_SAMPLES + 2));
 
@@ -187,6 +198,9 @@ public:
 				break;
 
 			sampler->generate(offset);
+
+			Float mean = 0; meanSqr = 0.0f;
+			// SampleCount = j+1
 
 			for (size_t j = 0; j<sampler->getSampleCount(); j++) {
 				rRec.newQuery(queryType, sensor->getMedium());
@@ -275,6 +289,8 @@ public:
 	MTS_DECLARE_CLASS()
 private:
 	ref_vector<SamplingIntegrator> m_integrators;
+	/* 한 render pass를 지나고 난 다음 film 의 variance를 근사한다. 크기는 film과 같다. */
+	mutable ref<ImageBlock> m_varianceBuffer;
 };
 
 MTS_IMPLEMENT_CLASS_S(MultiChannelIntegrator, false, SamplingIntegrator)
