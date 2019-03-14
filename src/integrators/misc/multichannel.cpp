@@ -93,7 +93,6 @@ public:
 		m_integrators.resize(stream->readSize());
 		for (size_t i=0; i<m_integrators.size(); ++i)
 			m_integrators[i] = static_cast<SamplingIntegrator *>(manager->getInstance(stream));
-		m_averageLuminance = stream->readFloat();
 	}
 
 	void serialize(Stream *stream, InstanceManager *manager) const {
@@ -102,7 +101,6 @@ public:
 		stream->writeSize(m_integrators.size());
 		for (size_t i=0; i<m_integrators.size(); ++i)
 			manager->serialize(stream, m_integrators[i].get());
-		stream->writeFloat(m_averageLuminance);
 	}
 
 	bool preprocess(const Scene *scene, RenderQueue *queue,
@@ -116,48 +114,6 @@ public:
 					sensorResID, samplerResID))
 				return false;
 		}
-
-		/* Estimate the overall luminance on the image plane */
-		Sampler *sampler = static_cast<Sampler *>(Scheduler::getInstance()->getResource(samplerResID, 0));
-		Sensor *sensor = static_cast<Sensor *>(Scheduler::getInstance()->getResource(sensorResID));
-		if (sampler->getClass()->getName() != "IndependentSampler")
-			Log(EError, "The error-controlling integrator should only be "
-			"used in conjunction with the independent sampler");
-
-		Vector2i filmSize = sensor->getFilm()->getSize();
-		bool needsApertureSample = sensor->needsApertureSample();
-		bool needsTimeSample = sensor->needsTimeSample();
-		const int nSamples = 10000;
-		Float luminance = 0;
-
-		Point2 apertureSample(0.5f);
-		Float timeSample = 0.5f;
-		RadianceQueryRecord rRec(scene, sampler);
-
-		for (int i = 0; i<nSamples; ++i) {
-			sampler->generate(Point2i(0));
-
-			rRec.newQuery(RadianceQueryRecord::ERadiance, sensor->getMedium());
-			rRec.extra = RadianceQueryRecord::EAdaptiveQuery;
-
-			Point2 samplePos(rRec.nextSample2D());
-			samplePos.x *= filmSize.x;
-			samplePos.y *= filmSize.y;
-
-			if (needsApertureSample)
-				apertureSample = rRec.nextSample2D();
-			if (needsTimeSample)
-				timeSample = rRec.nextSample1D();
-
-			RayDifferential eyeRay;
-			Spectrum sampleValue = sensor->sampleRay(
-				eyeRay, samplePos, apertureSample, timeSample);
-
-			sampleValue *= m_integrators[0]->Li(eyeRay, rRec);
-			luminance += sampleValue.getLuminance();
-		}
-
-		m_averageLuminance = luminance / nSamples;
 
 		return true;
 	}
@@ -372,7 +328,6 @@ private:
 	ref_vector<SamplingIntegrator> m_integrators;
 	/* 한 render pass를 지나고 난 다음 film 의 relative mean squared error를 근사한다. 크기는 film과 같다. */
 	mutable ref<ImageBlock> m_varianceBuffer;
-	Float m_averageLuminance;
 };
 
 MTS_IMPLEMENT_CLASS_S(MultiChannelIntegrator, false, SamplingIntegrator)
