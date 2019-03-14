@@ -93,6 +93,7 @@ public:
 		m_integrators.resize(stream->readSize());
 		for (size_t i=0; i<m_integrators.size(); ++i)
 			m_integrators[i] = static_cast<SamplingIntegrator *>(manager->getInstance(stream));
+		m_averageLuminance = stream->readFloat();
 	}
 
 	void serialize(Stream *stream, InstanceManager *manager) const {
@@ -101,6 +102,7 @@ public:
 		stream->writeSize(m_integrators.size());
 		for (size_t i=0; i<m_integrators.size(); ++i)
 			manager->serialize(stream, m_integrators[i].get());
+		stream->writeFloat(m_averageLuminance);
 	}
 
 	bool preprocess(const Scene *scene, RenderQueue *queue,
@@ -114,6 +116,49 @@ public:
 					sensorResID, samplerResID))
 				return false;
 		}
+
+		/* Estimate the overall luminance on the image plane */
+		Sampler *sampler = static_cast<Sampler *>(Scheduler::getInstance()->getResource(samplerResID, 0));
+		Sensor *sensor = static_cast<Sensor *>(Scheduler::getInstance()->getResource(sensorResID));
+		if (sampler->getClass()->getName() != "IndependentSampler")
+			Log(EError, "The error-controlling integrator should only be "
+			"used in conjunction with the independent sampler");
+
+		Vector2i filmSize = sensor->getFilm()->getSize();
+		bool needsApertureSample = sensor->needsApertureSample();
+		bool needsTimeSample = sensor->needsTimeSample();
+		const int nSamples = 10000;
+		Float luminance = 0;
+
+		Point2 apertureSample(0.5f);
+		Float timeSample = 0.5f;
+		RadianceQueryRecord rRec(scene, sampler);
+
+		for (int i = 0; i<nSamples; ++i) {
+			sampler->generate(Point2i(0));
+
+			rRec.newQuery(RadianceQueryRecord::ERadiance, sensor->getMedium());
+			rRec.extra = RadianceQueryRecord::EAdaptiveQuery;
+
+			Point2 samplePos(rRec.nextSample2D());
+			samplePos.x *= filmSize.x;
+			samplePos.y *= filmSize.y;
+
+			if (needsApertureSample)
+				apertureSample = rRec.nextSample2D();
+			if (needsTimeSample)
+				timeSample = rRec.nextSample1D();
+
+			RayDifferential eyeRay;
+			Spectrum sampleValue = sensor->sampleRay(
+				eyeRay, samplePos, apertureSample, timeSample);
+
+			sampleValue *= m_integrators[0]->Li(eyeRay, rRec);
+			luminance += sampleValue.getLuminance();
+		}
+
+		m_averageLuminance = luminance / nSamples;
+
 		return true;
 	}
 
@@ -191,20 +236,31 @@ public:
 
 		uint32_t queryType = RadianceQueryRecord::ESensorRay;
 		Float *temp = (Float *) alloca(sizeof(Float) * (m_integrators.size() * SPECTRUM_SAMPLES + 2));
+		Float *mean = (Float *)alloca(sizeof(Float)* (m_integrators.size() * SPECTRUM_SAMPLES));
+		Float *meanSqr = (Float *)alloca(sizeof(Float)* (m_integrators.size() * SPECTRUM_SAMPLES));
+		Float *variance = (Float *)alloca(sizeof(Float)* (m_integrators.size() * SPECTRUM_SAMPLES + 2));
 
 		for (size_t i = 0; i<points.size(); ++i) {
-			Point2i offset = Point2i(points[i]) + Vector2i(block->getOffset());
+			Point2i offset_point = Point2i(points[i]) + Vector2i(block->getOffset());
 			if (stop)
 				break;
 
-			sampler->generate(offset);
-
-			Float mean = 0; meanSqr = 0.0f;
+			sampler->generate(offset_point);
 			// SampleCount = j+1
 
+			/* Stack memory initialization. 한 pixel만을 위한 메모리 */
+			int offset = 0;
+			for (size_t k = 0; k < m_integrators.size(); ++k) {
+				for (int l = 0; l < SPECTRUM_SAMPLES; ++l) {
+					mean[offset] = 0.0f;
+					meanSqr[offset++] = 0.0f;
+				}
+			}
+
+			/* 샘플 수 만큼 샘플링한다. */
 			for (size_t j = 0; j<sampler->getSampleCount(); j++) {
 				rRec.newQuery(queryType, sensor->getMedium());
-				Point2 samplePos(Point2(offset) + Vector2(rRec.nextSample2D()));
+				Point2 samplePos(Point2(offset_point) + Vector2(rRec.nextSample2D()));
 
 				if (needsApertureSample)
 					apertureSample = rRec.nextSample2D();
@@ -218,20 +274,45 @@ public:
 				sensorRay.scaleDifferential(diffScaleFactor);
 				rRec.rayIntersect(sensorRay);
 
+				/* 한 Block의 한 Pixel을 채운다. */
 				int offset = 0;
+
 				for (size_t k = 0; k<m_integrators.size(); ++k) {
 					RadianceQueryRecord rRec2(rRec);
 					rRec2.its = rRec.its;
 					Spectrum result = spec * m_integrators[k]->Li(sensorRay, rRec2);
-					for (int l = 0; l<SPECTRUM_SAMPLES; ++l)
+					for (int l = 0; l < SPECTRUM_SAMPLES; ++l) {
+						if (j >= 1) {
+							/* Numerically robust online variance(relMSE) estimation using an
+							algorithm proposed by Donald Knuth (TAOCP vol.2, 3rd ed., p.232) */
+							const Float delta = result[l] - mean[offset];
+							mean[offset] += delta / (j + 1);
+							meanSqr[offset] += delta * (result[l] - mean[offset]);
+
+							const Float var = meanSqr[offset] / j;
+							Float stdError = std::sqrt(var / (j + 1));
+
+							variance[offset] = stdError / (std::abs(mean[offset]) + 0.0001f);
+						}
 						temp[offset++] = result[l];
+					}
 				}
-				temp[offset++] = rRec.alpha;
-				temp[offset] = 1.0f;
-				block->put(samplePos, temp);
+
+				if (j >= 1) {
+					variance[offset] = rRec.alpha;
+					variance[offset + 1] = 1.0f;
+					varianceBlock->put(samplePos, variance);
+					block->put(samplePos, variance);
+				}
+				temp[offset] = rRec.alpha;
+				temp[offset + 1] = 1.0f;
+				// block->put(samplePos, temp);
+
 				sampler->advance();
 			}
 		}
+
+		m_varianceBuffer->put(varianceBlock);
 	}
 
 	void bindUsedResources(ParallelProcess *proc) const {
@@ -289,8 +370,9 @@ public:
 	MTS_DECLARE_CLASS()
 private:
 	ref_vector<SamplingIntegrator> m_integrators;
-	/* 한 render pass를 지나고 난 다음 film 의 variance를 근사한다. 크기는 film과 같다. */
+	/* 한 render pass를 지나고 난 다음 film 의 relative mean squared error를 근사한다. 크기는 film과 같다. */
 	mutable ref<ImageBlock> m_varianceBuffer;
+	Float m_averageLuminance;
 };
 
 MTS_IMPLEMENT_CLASS_S(MultiChannelIntegrator, false, SamplingIntegrator)
