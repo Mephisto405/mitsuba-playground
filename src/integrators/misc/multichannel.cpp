@@ -145,7 +145,9 @@ public:
 				m_integrators.size() > 1 ? Bitmap::EMultiSpectrumAlphaWeight : Bitmap::ESpectrumAlphaWeight,
 				(int) (m_integrators.size() * SPECTRUM_SAMPLES + 2), false);
 
-		/* Variance buffer initialization along the above pixel format */
+		/* Buffer initialization along the above pixel format */
+		m_imageBuffer = new ImageBlock(m_integrators.size() > 1 ? Bitmap::EMultiSpectrumAlphaWeight : Bitmap::ESpectrumAlphaWeight,
+			film->getSize(), film->getReconstructionFilter(), (int)(m_integrators.size() * SPECTRUM_SAMPLES + 2), true);
 		m_varianceBuffer = new ImageBlock(m_integrators.size() > 1 ? Bitmap::EMultiSpectrumAlphaWeight : Bitmap::ESpectrumAlphaWeight,
 			film->getSize(), film->getReconstructionFilter(), (int)(m_integrators.size() * SPECTRUM_SAMPLES + 2), true);
 
@@ -258,18 +260,37 @@ public:
 					variance[offset] = rRec.alpha;
 					variance[offset + 1] = 1.0f;
 					varianceBlock->put(samplePos, variance);
-					block->put(samplePos, variance);
+					// block->put(samplePos, variance);
 				}
 				temp[offset] = rRec.alpha;
 				temp[offset + 1] = 1.0f;
-				// block->put(samplePos, temp);
+				block->put(samplePos, temp);
 
 				sampler->advance();
 			}
 		}
 
+		/* Compute cample mean & put the mean image and variance image into each buffers */
+		ImageBlock *meanBlock = block->clone();
+		meanBlock->getBitmap()->scale(1.0f / (Float) sampler->getSampleCount());
+
+		m_imageBuffer->put(meanBlock);
 		m_varianceBuffer->put(varianceBlock);
 	}
+
+	void postprocess(const Scene *scene, RenderQueue *queue, const RenderJob *job,
+		int sceneResID, int sensorResID, int samplerResID) { 
+		SamplingIntegrator::postprocess(scene, queue, job, sceneResID, 
+			sensorResID, samplerResID);
+		for (size_t i = 0; i<m_integrators.size(); ++i) {
+			m_integrators[i]->postprocess(scene, queue, job, sceneResID,
+				sensorResID, samplerResID);
+		}
+
+		m_imageBuffer;
+		m_varianceBuffer;
+	}
+
 
 	void bindUsedResources(ParallelProcess *proc) const {
 		SamplingIntegrator::bindUsedResources(proc);
@@ -326,8 +347,10 @@ public:
 	MTS_DECLARE_CLASS()
 private:
 	ref_vector<SamplingIntegrator> m_integrators;
-	/* 한 render pass를 지나고 난 다음 film 의 relative mean squared error를 근사한다. 크기는 film과 같다. */
-	mutable ref<ImageBlock> m_varianceBuffer;
+	/* 한 render pass를 지나고 난 다음 film 의 relative mean squared error를 근사한다. 
+	크기는 film과 같다. 
+	mean이 아니라 accumulative 하다*/
+	mutable ref<ImageBlock> m_imageBuffer, m_varianceBuffer;
 };
 
 MTS_IMPLEMENT_CLASS_S(MultiChannelIntegrator, false, SamplingIntegrator)
